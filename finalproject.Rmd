@@ -12,12 +12,15 @@ output:
 ---
 
 ```{r setup, include = FALSE}
+
 knitr::opts_chunk$set(echo = FALSE)
+
 ```
 
 # Packages and Data
 
 ```{r, results = FALSE}
+
 # Libraries
 suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(ggridges))
@@ -110,6 +113,7 @@ We have five categorical variables and ten quantitative variables as displayed b
 
 We investigated the following three main research questions in our analysis.
 
+\vspace{10pt}
 **1. What is the impact of sleep patterns on GPA?**
 
 We hypothesize that students with irregular or insufficient sleep may experience fluctuations in their term GPA. 
@@ -118,6 +122,7 @@ Through a series of exploratory data analyses (EDA), including scatterplots, pai
 
 This approach will provide insight into any linear or more complex relationship influencing academic success.
 
+\vspace{10pt}
 **2. What is the impact of being a first-generation or underrepresented student on academic outcomes? Does gender play a role in academic success?**
 
 Initial observations indicate that disparities in academic outcomes may correlate with demographic variables such as race, gender, and first-generation college status. 
@@ -126,6 +131,7 @@ This part of the study focuses on examining how these factors influence term GPA
 
 This statistical approach will help determine if demographic factors serve as significant predictors of academic achievement, potentially informing targeted support strategies for underrepresented groups.
 
+\vspace{10pt}
 **3. Do students from different schools experience different levels of sleep or academic performance?**
 
 Preliminary data suggests there might be differences in student lifestyles, such as sleep habits, across various universities. 
@@ -233,26 +239,7 @@ The correlation between `midpoint_sleep` and `cum_gpa` is negative. This suggest
 
 ## Scatterplots
 
-```{r}
-
-sleep %>%
-  ggplot(aes(x = TotalSleepTime, y = cum_gpa)) +
-  labs(title = "Cumulative GPA vs. Total Sleep Time",
-       y = "Cumulative GPA",
-       x = "Total Sleep Time (minutes)",
-       color = "Study") +
-  geom_point(aes(color = as.factor(study)), alpha = 0.4) +
-  geom_smooth(method = "lm", aes(group = as.factor(study), color = as.factor(study)), alpha = 0.3) +
-  theme_minimal()
-
-```
-
-Interpretation: There is a positive trend indicated by the trend lines for each study, and the slope is roughly the same, suggesting that as TotalSleepTime increases, cum_gpa tends to increase as well.
-The shaded areas around each trend line represent the confidence interval for the trend line's estimate. We see very wide shaded areas indicating relatively high uncertainty about the trend line's slope.
-
-Outliers are present in the data, with some students getting much less or much more sleep than the average. It's interesting to note that at both extremes of sleep duration, there are students with high GPAs, indicating that some students might sacrifice sleep time  for studying; and some who get sample sleep get more focused at class and higher study  efficiency.
-
-My motivation for this next plot is to explore the relationship between students' total sleep time and their academic performance, classified by their term GPA, with a further consideration of the average midpoint of their sleep. This is informative because this visualization underscores the importance of not only the length of sleep but also the timing of sleep in relation to academic performance. Whether staying up late might have different effects for the same length of sleep.
+My motivation for this plot is to explore the relationship between students' total sleep time and their academic performance, classified by their term GPA, with a further consideration of the average midpoint of their sleep. This is informative because this visualization underscores the importance of not only the length of sleep but also the timing of sleep in relation to academic performance. Whether staying up late might have different effects for the same length of sleep.
 
 ```{r}
 
@@ -304,7 +291,7 @@ qqline(resid(sleep_lm))
 
 ## Pairs Plot
 
-```{r}
+```{r, warning = FALSE}
 
 # Create a pairs plot using GGally
 sleep %>%
@@ -320,7 +307,116 @@ Inconsistent relationship when only look at quantitative variable vs looking at 
 
 # Demographics and GPA
 
+-Histogram on the distribution of term_gpa (EDA)
+-one-way ANOVA analysis to see whether term_gpa differs across different demographic groups (gender, race, and first-generation status).
 
+# Cohort and Performance
+
+-Dendrogram by study groups
+-Violin plot on TotalSleepTime by study groups
+-Mosaic plot, Chi-square test for independence for comparing the number of first-generation by study cohort
+
+## Mosaic Plot
+
+```{r, warning = FALSE}
+
+mosaicplot(table(sleep$demo_firstgen, sleep$study), main="First Generations by studies", shade = TRUE)
+chi_square_results <- chisq.test(table(sleep$demo_firstgen, sleep$study))
+
+```
+
+```{r}
+
+chisq.test(table(sleep$demo_firstgen, sleep$study))
+
+```
+
+The mosaic plot shows the standardized residuals from a chi-squared test of independence between two categorical variables: first-generation status (non-first gen = 0, first-gen = 1) and cohort (i.e. which study the subject participate in) . In mosaic plots, the width of the rectangles is proportional to a marginal distribution, and the height is proportional to a conditional distribution. Thus, from the above plots, we can easily assess the marginal distribution of first-gen.The area of each box corresponds to the number of observations in each combination of categories. In our plot, the combination first generation/study1 (CMU 2018) has an observed count that is significantly lower than what would be expected under independence. 
+it appears that there are also significantly more “first generations” for study 2 than we would expect under the null hypothesis of independence, thereby suggesting that we should reject this null hypothesis. For study 5, there seems to be fewer first generation participants than we expected. 
+
+We can also verify our observation through conducting chi-square test for independence, and the result shows that we get a p-value close to 0. From both tests, we reject the null hypothesis that whether the student is first generation and study are independent, thereby suggesting that these variables are dependent
+
+## Scatterplots
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = TotalSleepTime, y = cum_gpa)) +
+  labs(title = "Cumulative GPA vs. Total Sleep Time",
+       y = "Cumulative GPA",
+       x = "Total Sleep Time (minutes)",
+       color = "Study") +
+  geom_point(aes(color = as.factor(study)), alpha = 0.4) +
+  geom_smooth(method = "lm", aes(group = as.factor(study), color = as.factor(study)), alpha = 0.3) +
+  theme_minimal()
+
+```
+
+Interpretation: There is a positive trend indicated by the trend lines for each study, and the slope is roughly the same, suggesting that as TotalSleepTime increases, cum_gpa tends to increase as well.
+The shaded areas around each trend line represent the confidence interval for the trend line's estimate. We see very wide shaded areas indicating relatively high uncertainty about the trend line's slope.
+
+Outliers are present in the data, with some students getting much less or much more sleep than the average. It's interesting to note that at both extremes of sleep duration, there are students with high GPAs, indicating that some students might sacrifice sleep time  for studying; and some who get sample sleep get more focused at class and higher study  efficiency.
+
+## Violin Plot
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = factor(study), y = TotalSleepTime)) +
+  geom_violin() +
+  geom_boxplot(width = 0.5) +
+  geom_point(alpha = 0.6, aes(color = factor(demo_gender))) +
+  scale_color_discrete(name = "Gender of the subject", 
+                       breaks=c("0", "1"), 
+                       labels =c("male", "female")) +
+  labs(title = "Violin Plot of Total Sleeping Time by Study Groups", x = "Study Groups", y = "Total Sleeping Time, in minutes") +
+  scale_x_discrete(breaks=c("1","2", "3", "4", "5"),
+        labels=c("CMU", "UW", "UW", "ND", "CMU"))
+
+```
+
+The questions I am interested in exploring are whether CMU students sleep significantly less than students from other universities and whether female students sleep more than male students. This violin plot shows the full shape of the distribution of total sleeping time regarding students from each university, with each specific data point being categorized by the gender of the investigated students. According to the box plots enclosed in the violin shapes, the average median sleeping time among CMU students is not significantly less than that of students from other universities. According to the density curves given by the violin plot, the peaks of the curves for CMU students' sleeping time are also not significantly lower than those of other universities. We can see that among all universities, most male students tend to have an intermediate amount of sleep while female students are more likely to sleep very little or a lot, except for students from the University of Washington.
+
+## Dendrogram
+
+```{r}
+
+# standardize
+
+# dist matrix
+sleep_dist <- sleep_quantextra %>%
+  scale(center = FALSE,
+        scale = apply(sleep_quantextra, 2, sd, na.rm = TRUE))
+
+sleep_dist <- sleep_dist %>%
+  dist(sleep_quant, method = "euclidean")
+
+# plot(as.dendrogram(hclust(sleep_dist, method = "single")))
+# plot(as.dendrogram(hclust(sleep_dist, method = "complete")))
+
+```
+
+```{r}
+
+sleep_complete_dend <- as.dendrogram(hclust(sleep_dist, method = "complete"))
+
+```
+
+```{r}
+
+sleep_complete_dend <- set(sleep_complete_dend, "branches_k_color", k=5)
+
+sleep_colors <- ifelse(sleep$study == 5, "red",
+                       ifelse(sleep$study == 4, "orange",
+                              ifelse(sleep$study == 3, "gold",
+                                     ifelse(sleep$study == 2, "green", "blue"))))
+
+plot(set(sleep_complete_dend, "labels_colors",
+         order_value = TRUE, sleep_colors))
+
+```
+
+dendrogram (five branches colored, with which study they came from as the label colors)
 
 ## Unfinished Work
 
