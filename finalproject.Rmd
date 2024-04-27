@@ -1,0 +1,445 @@
+---
+title: "36-315 Final Project"
+author: "Alva He, Jialing Deng, Ruonan Sun, Vincent Huai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    code_folding: show
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Packages and Data
+
+```{r, results = FALSE}
+# Libraries
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(ggridges))
+suppressPackageStartupMessages(library(dendextend))
+suppressPackageStartupMessages(library(factoextra))
+
+# Data
+sleep <- read.csv("cmu-sleep.csv")
+sleep$cat_race <- as.factor(sleep$demo_race)
+sleep$cat_gender <- as.factor(sleep$demo_gender)
+sleep$cat_firstgen <- as.factor(sleep$demo_firstgen)
+
+# Data (nh Cohort Excluded)
+# nh cohort lacks term_units and Zterm_units_ZofZ
+# sleep_nh <- sleep %>%
+#   filter(!(cohort == "nh"))
+
+# Data (NA Filtered)
+sleep_clean <- sleep[!rowSums(is.na(sleep)), ]
+
+# Continuous Variables
+sleep_continuous <- sleep[c('bedtime_mssd', 'TotalSleepTime', 'midpoint_sleep', 
+                           'frac_nights_with_data', 'daytime_sleep', 'cum_gpa', 
+                           'term_gpa')]
+
+# Quantitative Variables (NA Filtered)
+sleep_quant <- sleep_clean %>%
+  select(!c(subject_id, study, cohort, 
+            demo_race, demo_gender, demo_firstgen,
+            cat_race, cat_gender, cat_firstgen))
+
+```
+
+# Introduction
+
+## Motivation
+
+It is important for students to succeed during their first year of college for numerous reasons. However, the transition to college life presents many challenges, which can often result in the comprising of a student's sleep. Sleep is crucial to cognitive function, so the reduction in sleep could threaten a student's ability to suceed in their first year of college. We hypothesize that better sleep could lead to a higher GPA, and suggest that university policy and student behavior can be adjusted accordingly to enhance academic outcomes.
+
+## Overall Theme
+
+The overarching aim is to discern the relationship between sleep habits and academic success during the pivotal first year of college. This exploration is structured into three distinct sections: 
+- Firstly, the connection between sleep duration and academic achievement is examined. 
+- Secondly, we consider whether sleep variability, as an indicator of sleep quality, might also correlate with GPA. 
+- Lastly, we identify if these relationships hold true when accounting for demographic factors like race, gender, and first-generation college status.
+
+# Overview
+
+Our data was collected from a study on the CMU Data Repository that surveyed first-year students from Carnegie Mellon University (CMU), The University of Washington (UW) and Notre Dame University (ND). In total, 634 students participated in the survey Students received a Fitbit to track their sleep and physical activity. Additionally, their GPAs were collected from their university's registrar. 
+
+Variables such as subject ID, study number, cohort, and demographic details are featured, alongside sleep-related metrics like bedtime variability and total sleep time. The investigation delves into the potential influence of sleep duration on academic performance, specifically changes in the end-of-semester grade point average (GPA) among first-year college students.
+
+We have five categorical variables and ten quantitative variables as displayed below. Some variables described various features of the student such as race and gender; some variables described the sleeping habits of the student; and some variables described the student's academic performance.
+
+| Descriptive Variable | Description |
+|:--- |:--- |
+| *Subject ID* | Unique ID of the Subject. |
+| *Study* | Study Number (corresponding to last table). |
+| *Cohort* | Codename of the cohort that the subject belongs to. |
+| *Race* | Binary label for underrepresented and non-underrepresented students (underrepresented = 0, non-underpresented = 1). |
+| *Gender* | Gender of the subject (male = 0, female = 1), as reported by their institution. |
+| *First Generation* | First-generation status (non-first gen = 0, first-gen = 1). |
+
+| Sleep-Related Metric | Description |
+|:--- |:--- |
+| *Bedtime MSSD* | Mean successive squared difference of bedtime. This measures bedtime variability, and is calculated as the average of the squared difference of bedtime on consecutive nights. |
+| *Total Sleep Time* | Average time in bed (the difference between wake time and bedtime) minus the length of total awake/restlessness in the main sleep episode, in minutes. |
+| *Midpoint Sleep* | Average midpoint of bedtime and wake time, in minutes after 11 pm. |
+| *Fraction Nights with Data* | Fraction of nights with captured data for the subject. |
+| *Daytime Sleep* | Average sleep time outside of the range of the main sleep episode, in minutes. |
+
+| Academic Performance Metric | Description |
+|:--- |:--- |
+| *Cumulative GPA* | Cumulative GPA (out of 4.0), for semesters before the one being studied. |
+| *Term GPA* | End-of-term GPA (out of 4.0) for the semester being studied. |
+| *Term Units* | Number of course units carried in the term. |
+| *Term Units (Adjusted)* | Term Units adjusted for mean of 0 and standard deviation of 1. |
+
+
+| Study | University | Semester |
+|:--- |:--- |:--- |
+| 1 | Carnegie Mellon University | Spring 2018 |
+| 2 | University of Washington | Spring 2018 |
+| 3 | University of Washington | Spring 2019 |
+| 4 | Notre Dame University | Spring 2016 |
+| 5 | Carnegie Mellon University | Spring 2017 |
+
+# Research Questions
+
+We investigated the following three main research questions in our analysis.
+
+**What is the impact of sleep patterns on GPA?**
+
+We hypothesize that students with irregular or insufficient sleep may experience fluctuations in their term GPA. 
+
+Through a series of exploratory data analyses (EDA), including scatterplots, pairs plot and histograms, we explore trends and quantify the relationship between total sleep time and GPA.Furthermore, advanced visualizations like PCA biplots and correlograms are be employed to understand the multidimensional interactions among various sleep-related metrics. 
+
+This approach will provide insight into any linear or more complex relationship influencing academic success.
+
+**What is the impact of being a first-generation or underrepresented student on academic outcomes? Does gender play a role in academic success?**
+
+Initial observations indicate that disparities in academic outcomes may correlate with demographic variables such as race, gender, and first-generation college status. 
+
+This part of the study focuses on examining how these factors influence term GPA among students. By utilizing histograms to visualize GPA distributions and conducting one-way ANOVA tests, this research will evaluate differences across demographic groups. 
+
+This statistical approach will help determine if demographic factors serve as significant predictors of academic achievement, potentially informing targeted support strategies for underrepresented groups.
+
+**Do students from different schools experience different levels of sleep or academic performance?**
+
+Preliminary data suggests there might be differences in student lifestyles, such as sleep habits, across various universities. 
+
+This segment aims to explore these differences and identify potential trends or anomalies in student behavior by comparing groups from different institutions (i.e. CMU with others). Techniques such as dendrograms for hierarchical clustering, violin plots for detailed distribution comparisons, and mosaic plots coupled with Chi-square tests will be applied to investigate these variances. 
+
+This analysis will not only highlight how study environments might influence lifestyle choices but also explore the broader impacts of institutional characteristics on student demographics and behaviors.
+
+# Sleep Patterns and GPA
+
+We initially explore the relationships between sleep and academic success.
+
+## Correlation Matrix
+
+First, the following code chunk generates the correlation matrix for continuous variables such as sleep times, GPA, and other numerical metrics to see how strongly these variables are related.
+
+```{r}
+
+cor_matrix <- cor(sleep_continuous, use = "complete.obs")  
+
+print(cor_matrix)
+
+```
+
+## Univariate Distribution Analysis
+
+In the following code chunk, we plot histograms and density plots to explore the distribution of important variables such as `TotalSleepTime`, and `term_gpa`.
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = TotalSleepTime)) +
+  labs(title = "Total Sleep Time Distribution",
+       y = "Density",
+       x = "Total Sleep Time (minutes)") +
+  geom_histogram(aes(y = after_stat(density)),
+                 color = "deepskyblue4", 
+                 fill = "deepskyblue",
+                 binwidth = 11.59) +
+  geom_density(fill = "deeppink",
+               alpha = 0.2)
+
+```
+
+Sleep Time appears to be approximately normally distributed, centered around 400 minutes (which is roughly 6.5 hours). There are some outliers on both the lower and higher ends of the sleep time, but the bulk of the data falls within the normal range. The corresponding density plot confirms the bell-shaped curve. 
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = term_gpa)) +
+  labs(title = "Term GPA Distribution",
+       y = "Density",
+       x = "Term GPA") +
+  geom_histogram(aes(y = after_stat(density)),
+                 color = "darkorchid4", 
+                 fill = "darkorchid1",
+                 binwidth = 0.1066) +
+  geom_density(fill = "green",
+               alpha = 0.2)
+
+```
+
+The histogram for Term GPA shows that the data skews left, indicating that more students have a GPA closer to 4.0 than to the lower end of the scale. There's a clear peak around the GPA of 3.5. The density plot overlays the histogram, providing a smoothed curve representation of the distribution, emphasizing the skew towards higher GPAs.
+
+## PCA Biplot
+
+The intuition of making PCA biplot is to identify any linear relationships between sleeping time and cumulative GPA. We aim to investigate how different aspects of sleep relate to academic performance.
+
+```{r}
+
+# Create PCA
+sleep_pca <- sleep_clean %>%
+  dplyr::select(c(TotalSleepTime, midpoint_sleep, cum_gpa, Zterm_units_ZofZ)) %>%
+  prcomp(center = TRUE, scale. = TRUE)
+summary(sleep_pca)
+
+```
+
+```{r}
+
+# Create PCA matrix
+sleep_pca_matrix <- sleep_pca$x
+head(sleep_pca_matrix)
+
+```
+
+```{r}
+
+sleep_pca %>%
+  fviz_pca_biplot(label="var", alpha.ind=0.3, 
+                  alpha.var=0.8, col.var="darkblue")
+
+sleep_quant <- sleep_clean %>%
+  dplyr::select(c(TotalSleepTime, midpoint_sleep, cum_gpa, Zterm_units_ZofZ))
+
+# cor(sleep_quant[,1:4])
+
+```
+
+The correlation between `TotalSleepTime` and `cum_gpa` is weakly positive. This implies that more total sleep might be associated with higher GPA. 
+
+The correlation between `midpoint_sleep` and `cum_gpa` is negative. This suggests that later midpoints of sleep are slightly associated with lower GPA. The PCA provides a potential further research question: Given the weak positive correlation, it would be important to determine if longer sleep directly contributes to higher GPA or if they are both influenced by a third factor.
+
+## Regression Analysis
+
+```{r}
+
+sleep_lm <- lm(term_gpa ~ bedtime_mssd + TotalSleepTime + midpoint_sleep
+               + frac_nights_with_data + daytime_sleep, data = sleep)
+summary(sleep_lm)
+
+```
+
+**TotalSleepTime:** The coefficient $0.0017695$ is positive and statistically significant with a p-value of $0.000692$. This suggests that an increase in Total Sleep Time is associated with an increase in GPA, controlling for other factors.
+
+**midpoint_sleep:** The coefficient $-0.0009123$ is negative and significant with a p-value of $0.010950$. This indicates that a later midpoint of sleep (which could indicate going to bed later) is associated with a lower GPA.
+
+**daytime_sleep:** The coefficient $-0.0027385$ is negative and significant with a p-value of $0.002823$. THis suggests that more sleep during the day is associated with a lower GPA.
+
+**bedtime_mssd and frac_nights_with_data:** These coefficients are not statistically significant (their p-values are $0.107901$ and $0.391353$ respectively). This indicates that there is no clear evidence that variability in bedtime and the fraction of nights with data are associated with GPA within this model.
+
+**Adjusted R-Squared:** The R-squared value of $0.08109$ indicates that the model explains about $8.1%$ of the variability in the dependent variable. This is relatively low, which means that there are other factors other than sleep time that are not included in the model that affect GPA.
+
+# First-Generation, Underrepresentation and Gender in Academic Success
+
+
+
+## Unfinished Work
+
+```{r}
+
+sleep %>%
+  ggplot() +
+  geom_point(data = subset(sleep, daytime_sleep <= 77), 
+             aes(x = midpoint_sleep, y = TotalSleepTime, color = daytime_sleep), 
+             alpha = 0.85) +
+  scale_color_gradient2("Average \nDaytime Sleep \n(minutes)", 
+                        low = "red", mid = "orange", high = "blue",
+                        midpoint = median(sleep$daytime_sleep)) +
+  geom_point(data = subset(sleep, daytime_sleep > 77),
+             aes(x = midpoint_sleep, y = TotalSleepTime), 
+             alpha = 0.85) +
+  labs(title = "Total Sleep Time vs. Midpoint of Sleep",
+       x = "Midpoint of Sleep (minutes after 11pm)",
+       y = "Total Sleep Time (minutes)")
+  
+
+```
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = bedtime_mssd, y = midpoint_sleep, color = Zterm_units_ZofZ)) +
+  scale_color_gradient2(low = "red", mid = "orange", high = "blue") +
+  geom_point(alpha = 0.95)
+
+sleep %>%
+  ggplot(aes(x = frac_nights_with_data, y = cum_gpa, color = daytime_sleep)) +
+  scale_color_gradient2(low = "red", mid = "orange", high = "blue") +
+  geom_point(alpha = 0.5)
+
+```
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = cat_gender, fill = cat_race)) +
+  facet_wrap(~ cat_firstgen) +
+  geom_bar(position = "dodge")
+
+```
+
+```{r}
+
+
+
+sleep %>%
+  ggplot(aes(y = cat_gender, x = cum_gpa)) +
+  facet_grid( ~ cat_race) +
+  ggridges::geom_density_ridges(rel_min_height = 0.01,
+                                alpha = 0.75,
+                                aes(fill = cat_firstgen))
+
+```
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = daytime_sleep, y = term_gpa, color = Zterm_units_ZofZ)) +
+  geom_point(alpha = 0.75) +
+  scale_color_gradient2("Term Units \n(Z-Score)",
+                        limit = c(-2, 2),
+                        low = "red", mid = "green", high = "blue", 
+                        na.value = rgb(1, 0.96, 0.83, alpha = 0.001)) +
+  labs(title = "Term GPA vs. Daytime Sleep",
+       x = "Daytime Sleep (minutes)",
+       y = "Term GPA") +
+  geom_smooth(method = "lm", se = FALSE)
+
+```
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = TotalSleepTime, y = term_gpa, color = midpoint_sleep)) +
+  scale_color_gradient(low = "orange", high = "blue") +
+  geom_point(alpha = 0.5)
+
+```
+
+```{r}
+
+sleep %>%
+  ggplot(aes(x = Zterm_units_ZofZ, y = term_gpa, color = TotalSleepTime)) +
+  geom_point(alpha = 0.85) +
+  labs(title = "Total Sleep Time vs. Midpoint of Sleep",
+       x = "Term Units (Z-Score)",
+       y = "Term GPA") +
+  geom_smooth(method = "lm", se = FALSE)
+
+sleep <- sleep %>%
+  subset(daytime_sleep < 250)
+
+summary(lm(cum_gpa ~ daytime_sleep, data = sleep))
+
+```
+
+```{r}
+
+filter(sleep, cohort == "nh")$Zterm_units_ZofZ %>%
+  is.na() %>%
+  sum()
+
+```
+
+```{r}
+
+sleep_pca <- prcomp(sleep_quant, center = TRUE, scale. = TRUE)
+summary(sleep_pca)
+
+```
+
+```{r}
+
+fviz_eig(sleep_pca, choice = "variance", ncp = 9, addlabels = TRUE) +
+  geom_hline(yintercept = 100 * (1 / ncol(sleep_quant)))
+
+```
+
+```{r}
+
+sleep_nh <- sleep_nh %>%
+  mutate(pc1 = sleep_pca$x[,1],
+         pc2 = sleep_pca$x[,2],
+         pc3 = sleep_pca$x[,3])
+
+sleep_nh %>%
+  ggplot(aes(x = pc1, y = pc2)) +
+  labs(title = "PCA Plot for Sleep",
+       x = "PC 1",
+       y = "PC 2") +
+  geom_point(aes(color = as.factor(study)), alpha = 0.75)
+
+```
+
+```{r}
+
+fviz_pca_biplot(sleep_pca, label = "var",
+                alpha.ind = 0.25,
+                alpha.var = 0.75,
+                repel = TRUE,
+                # Set the color of the points to decades variable:
+                habillage = sleep_nh$cohort, pointshape = 19)
+
+```
+
+```{r}
+
+# standardize
+
+# dist matrix
+sleep_dist <- sleep_quant %>%
+  scale(center = FALSE,
+        scale = apply(sleep_quant, 2, sd, na.rm = TRUE))
+
+sleep_dist <- sleep_dist %>%
+  dist(sleep_quant, method = "euclidean")
+
+plot(as.dendrogram(hclust(sleep_dist, method = "single")))
+plot(as.dendrogram(hclust(sleep_dist, method = "complete")))
+
+```
+
+```{r}
+
+sleep_complete_dend <- as.dendrogram(hclust(sleep_dist, method = "complete"))
+
+```
+
+```{r}
+
+sleep_complete_dend <- set(sleep_complete_dend, "branches_k_color", k=5)
+
+plot(sleep_complete_dend)
+
+```
+
+```{r}
+
+sleep_colors <- ifelse(sleep$study == 5, "red",
+                       ifelse(sleep$study == 4, "orange",
+                              ifelse(sleep$study == 3, "gold",
+                                     ifelse(sleep$study == 2, "green", "blue"))))
+
+plot(set(sleep_complete_dend, "labels_colors", 
+         order_value = TRUE, sleep_colors))
+
+```
