@@ -23,6 +23,7 @@ suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(ggridges))
 suppressPackageStartupMessages(library(dendextend))
 suppressPackageStartupMessages(library(factoextra))
+suppressPackageStartupMessages(library(ggcorrplot))
 
 # Data
 sleep <- read.csv("cmu-sleep.csv")
@@ -36,18 +37,17 @@ sleep$cat_firstgen <- as.factor(sleep$demo_firstgen)
 #   filter(!(cohort == "nh"))
 
 # Data (NA Filtered)
-sleep_clean <- sleep[!rowSums(is.na(sleep)), ]
+# sleep_clean <- na.omit(sleep)
 
-# Continuous Variables
-sleep_continuous <- sleep[c('bedtime_mssd', 'TotalSleepTime', 'midpoint_sleep', 
-                           'frac_nights_with_data', 'daytime_sleep', 'cum_gpa', 
-                           'term_gpa')]
+# Sleep and GPA Variables
+sleep_quant <- sleep %>%
+  dplyr::select(bedtime_mssd:term_units) %>%
+  na.omit()
 
-# Quantitative Variables (NA Filtered)
-sleep_quant <- sleep_clean %>%
-  select(!c(subject_id, study, cohort, 
-            demo_race, demo_gender, demo_firstgen,
-            cat_race, cat_gender, cat_firstgen))
+# Sleep, GPA and Term Variables
+sleep_quantextra <- sleep %>%
+  dplyr::select(bedtime_mssd:Zterm_units_ZofZ) %>%
+  na.omit()
 
 ```
 
@@ -109,15 +109,15 @@ We have five categorical variables and ten quantitative variables as displayed b
 
 We investigated the following three main research questions in our analysis.
 
-**What is the impact of sleep patterns on GPA?**
+**1. What is the impact of sleep patterns on GPA?**
 
 We hypothesize that students with irregular or insufficient sleep may experience fluctuations in their term GPA. 
 
-Through a series of exploratory data analyses (EDA), including scatterplots, pairs plot and histograms, we explore trends and quantify the relationship between total sleep time and GPA.Furthermore, advanced visualizations like PCA biplots and correlograms are be employed to understand the multidimensional interactions among various sleep-related metrics. 
+Through a series of exploratory data analyses (EDA), including scatterplots, pairs plot and histograms, we explore trends and quantify the relationship between total sleep time and GPA. Furthermore, advanced visualizations like PCA biplots and correlograms are be employed to understand the multidimensional interactions among various sleep-related metrics. 
 
 This approach will provide insight into any linear or more complex relationship influencing academic success.
 
-**What is the impact of being a first-generation or underrepresented student on academic outcomes? Does gender play a role in academic success?**
+**2. What is the impact of being a first-generation or underrepresented student on academic outcomes? Does gender play a role in academic success?**
 
 Initial observations indicate that disparities in academic outcomes may correlate with demographic variables such as race, gender, and first-generation college status. 
 
@@ -125,7 +125,7 @@ This part of the study focuses on examining how these factors influence term GPA
 
 This statistical approach will help determine if demographic factors serve as significant predictors of academic achievement, potentially informing targeted support strategies for underrepresented groups.
 
-**Do students from different schools experience different levels of sleep or academic performance?**
+**3. Do students from different schools experience different levels of sleep or academic performance?**
 
 Preliminary data suggests there might be differences in student lifestyles, such as sleep habits, across various universities. 
 
@@ -135,37 +135,29 @@ This analysis will not only highlight how study environments might influence lif
 
 # Sleep Patterns and GPA
 
-We initially explore the relationships between sleep and academic success.
+We explore the relationships between sleep and academic success with the following graphs.
+- Histograms
+- Correlogram
+- Principal Component Analysis (PCA)
+- Pairs plots
 
-## Correlation Matrix
-
-First, the following code chunk generates the correlation matrix for continuous variables such as sleep times, GPA, and other numerical metrics to see how strongly these variables are related.
-
-```{r}
-
-cor_matrix <- cor(sleep_continuous, use = "complete.obs")  
-
-print(cor_matrix)
-
-```
-
-## Univariate Distribution Analysis
+## Histograms
 
 In the following code chunk, we plot histograms and density plots to explore the distribution of important variables such as `TotalSleepTime`, and `term_gpa`.
 
 ```{r}
 
 sleep %>%
-  ggplot(aes(x = TotalSleepTime)) +
-  labs(title = "Total Sleep Time Distribution",
-       y = "Density",
-       x = "Total Sleep Time (minutes)") +
-  geom_histogram(aes(y = after_stat(density)),
-                 color = "deepskyblue4", 
-                 fill = "deepskyblue",
-                 binwidth = 11.59) +
-  geom_density(fill = "deeppink",
-               alpha = 0.2)
+  ggplot2::ggplot(aes(x = TotalSleepTime)) +
+  ggplot2::labs(title = "Total Sleep Time Distribution",
+                y = "Density",
+                x = "Total Sleep Time (minutes)") +
+  ggplot2::geom_histogram(aes(y = ggplot2::after_stat(density)),
+                          color = "deepskyblue4", 
+                          fill = "deepskyblue",
+                          binwidth = 11.59) +
+  ggplot2::geom_density(fill = "deeppink",
+                        alpha = 0.2)
 
 ```
 
@@ -174,20 +166,32 @@ Sleep Time appears to be approximately normally distributed, centered around 400
 ```{r}
 
 sleep %>%
-  ggplot(aes(x = term_gpa)) +
-  labs(title = "Term GPA Distribution",
-       y = "Density",
-       x = "Term GPA") +
-  geom_histogram(aes(y = after_stat(density)),
-                 color = "darkorchid4", 
-                 fill = "darkorchid1",
-                 binwidth = 0.1066) +
-  geom_density(fill = "green",
-               alpha = 0.2)
+  ggplot2::ggplot(aes(x = term_gpa)) +
+  ggplot2::labs(title = "Term GPA Distribution",
+                y = "Density",
+                x = "Term GPA") +
+  ggplot2::geom_histogram(aes(y = ggplot2::after_stat(density)),
+                          color = "darkorchid4", 
+                          fill = "darkorchid1",
+                          binwidth = 0.1066) +
+  ggplot2::geom_density(fill = "green",
+                        alpha = 0.2)
 
 ```
 
 The histogram for Term GPA shows that the data skews left, indicating that more students have a GPA closer to 4.0 than to the lower end of the scale. There's a clear peak around the GPA of 3.5. The density plot overlays the histogram, providing a smoothed curve representation of the distribution, emphasizing the skew towards higher GPAs.
+
+## Correlogram
+
+```{r}
+
+sleep_quant.cor <- cor(sleep_quant)
+
+sleep_quant.cor %>%
+  ggcorrplot::ggcorrplot(method = "circle", hc.order = FALSE, type = "lower") +
+  ggplot2::ggtitle("Correlogram for Sleep and GPA variables")
+
+```
 
 ## PCA Biplot
 
@@ -196,9 +200,7 @@ The intuition of making PCA biplot is to identify any linear relationships betwe
 ```{r}
 
 # Create PCA
-sleep_pca <- sleep_clean %>%
-  dplyr::select(c(TotalSleepTime, midpoint_sleep, cum_gpa, Zterm_units_ZofZ)) %>%
-  prcomp(center = TRUE, scale. = TRUE)
+sleep_pca <- prcomp(sleep_quantextra, center = TRUE, scale. = TRUE)
 summary(sleep_pca)
 
 ```
@@ -214,13 +216,11 @@ head(sleep_pca_matrix)
 ```{r}
 
 sleep_pca %>%
-  fviz_pca_biplot(label="var", alpha.ind=0.3, 
-                  alpha.var=0.8, col.var="darkblue")
-
-sleep_quant <- sleep_clean %>%
-  dplyr::select(c(TotalSleepTime, midpoint_sleep, cum_gpa, Zterm_units_ZofZ))
-
-# cor(sleep_quant[,1:4])
+  fviz_pca_biplot(label = "var",
+                  alpha.ind = 0.25,
+                  alpha.var = 0.75,
+                  col.var = "darkblue",
+                  repel = TRUE)
 
 ```
 
@@ -248,7 +248,7 @@ summary(sleep_lm)
 
 **Adjusted R-Squared:** The R-squared value of $0.08109$ indicates that the model explains about $8.1%$ of the variability in the dependent variable. This is relatively low, which means that there are other factors other than sleep time that are not included in the model that affect GPA.
 
-# First-Generation, Underrepresentation and Gender in Academic Success
+# Demographics and GPA
 
 
 
@@ -256,190 +256,190 @@ summary(sleep_lm)
 
 ```{r}
 
-sleep %>%
-  ggplot() +
-  geom_point(data = subset(sleep, daytime_sleep <= 77), 
-             aes(x = midpoint_sleep, y = TotalSleepTime, color = daytime_sleep), 
-             alpha = 0.85) +
-  scale_color_gradient2("Average \nDaytime Sleep \n(minutes)", 
-                        low = "red", mid = "orange", high = "blue",
-                        midpoint = median(sleep$daytime_sleep)) +
-  geom_point(data = subset(sleep, daytime_sleep > 77),
-             aes(x = midpoint_sleep, y = TotalSleepTime), 
-             alpha = 0.85) +
-  labs(title = "Total Sleep Time vs. Midpoint of Sleep",
-       x = "Midpoint of Sleep (minutes after 11pm)",
-       y = "Total Sleep Time (minutes)")
-  
+# sleep %>%
+#   ggplot() +
+#   geom_point(data = subset(sleep, daytime_sleep <= 77), 
+#              aes(x = midpoint_sleep, y = TotalSleepTime, color = daytime_sleep), 
+#              alpha = 0.85) +
+#   scale_color_gradient2("Average \nDaytime Sleep \n(minutes)", 
+#                         low = "red", mid = "orange", high = "blue",
+#                         midpoint = median(sleep$daytime_sleep)) +
+#   geom_point(data = subset(sleep, daytime_sleep > 77),
+#              aes(x = midpoint_sleep, y = TotalSleepTime), 
+#              alpha = 0.85) +
+#   labs(title = "Total Sleep Time vs. Midpoint of Sleep",
+#        x = "Midpoint of Sleep (minutes after 11pm)",
+#        y = "Total Sleep Time (minutes)")
+#   
 
 ```
 
 ```{r}
 
-sleep %>%
-  ggplot(aes(x = bedtime_mssd, y = midpoint_sleep, color = Zterm_units_ZofZ)) +
-  scale_color_gradient2(low = "red", mid = "orange", high = "blue") +
-  geom_point(alpha = 0.95)
-
-sleep %>%
-  ggplot(aes(x = frac_nights_with_data, y = cum_gpa, color = daytime_sleep)) +
-  scale_color_gradient2(low = "red", mid = "orange", high = "blue") +
-  geom_point(alpha = 0.5)
-
-```
-
-```{r}
-
-sleep %>%
-  ggplot(aes(x = cat_gender, fill = cat_race)) +
-  facet_wrap(~ cat_firstgen) +
-  geom_bar(position = "dodge")
+# sleep %>%
+#   ggplot(aes(x = bedtime_mssd, y = midpoint_sleep, color = Zterm_units_ZofZ)) +
+#   scale_color_gradient2(low = "red", mid = "orange", high = "blue") +
+#   geom_point(alpha = 0.95)
+# 
+# sleep %>%
+#   ggplot(aes(x = frac_nights_with_data, y = cum_gpa, color = daytime_sleep)) +
+#   scale_color_gradient2(low = "red", mid = "orange", high = "blue") +
+#   geom_point(alpha = 0.5)
 
 ```
 
 ```{r}
 
-
-
-sleep %>%
-  ggplot(aes(y = cat_gender, x = cum_gpa)) +
-  facet_grid( ~ cat_race) +
-  ggridges::geom_density_ridges(rel_min_height = 0.01,
-                                alpha = 0.75,
-                                aes(fill = cat_firstgen))
+# sleep %>%
+#   ggplot(aes(x = cat_gender, fill = cat_race)) +
+#   facet_wrap(~ cat_firstgen) +
+#   geom_bar(position = "dodge")
 
 ```
 
 ```{r}
 
-sleep %>%
-  ggplot(aes(x = daytime_sleep, y = term_gpa, color = Zterm_units_ZofZ)) +
-  geom_point(alpha = 0.75) +
-  scale_color_gradient2("Term Units \n(Z-Score)",
-                        limit = c(-2, 2),
-                        low = "red", mid = "green", high = "blue", 
-                        na.value = rgb(1, 0.96, 0.83, alpha = 0.001)) +
-  labs(title = "Term GPA vs. Daytime Sleep",
-       x = "Daytime Sleep (minutes)",
-       y = "Term GPA") +
-  geom_smooth(method = "lm", se = FALSE)
+
+
+# sleep %>%
+#   ggplot(aes(y = cat_gender, x = cum_gpa)) +
+#   facet_grid( ~ cat_race) +
+#   ggridges::geom_density_ridges(rel_min_height = 0.01,
+#                                 alpha = 0.75,
+#                                 aes(fill = cat_firstgen))
 
 ```
 
 ```{r}
 
-sleep %>%
-  ggplot(aes(x = TotalSleepTime, y = term_gpa, color = midpoint_sleep)) +
-  scale_color_gradient(low = "orange", high = "blue") +
-  geom_point(alpha = 0.5)
+# sleep %>%
+#   ggplot(aes(x = daytime_sleep, y = term_gpa, color = Zterm_units_ZofZ)) +
+#   geom_point(alpha = 0.75) +
+#   scale_color_gradient2("Term Units \n(Z-Score)",
+#                         limit = c(-2, 2),
+#                         low = "red", mid = "green", high = "blue", 
+#                         na.value = rgb(1, 0.96, 0.83, alpha = 0.001)) +
+#   labs(title = "Term GPA vs. Daytime Sleep",
+#        x = "Daytime Sleep (minutes)",
+#        y = "Term GPA") +
+#   geom_smooth(method = "lm", se = FALSE)
 
 ```
 
 ```{r}
 
-sleep %>%
-  ggplot(aes(x = Zterm_units_ZofZ, y = term_gpa, color = TotalSleepTime)) +
-  geom_point(alpha = 0.85) +
-  labs(title = "Total Sleep Time vs. Midpoint of Sleep",
-       x = "Term Units (Z-Score)",
-       y = "Term GPA") +
-  geom_smooth(method = "lm", se = FALSE)
-
-sleep <- sleep %>%
-  subset(daytime_sleep < 250)
-
-summary(lm(cum_gpa ~ daytime_sleep, data = sleep))
+# sleep %>%
+#   ggplot(aes(x = TotalSleepTime, y = term_gpa, color = midpoint_sleep)) +
+#   scale_color_gradient(low = "orange", high = "blue") +
+#   geom_point(alpha = 0.5)
 
 ```
 
 ```{r}
 
-filter(sleep, cohort == "nh")$Zterm_units_ZofZ %>%
-  is.na() %>%
-  sum()
+# sleep %>%
+#   ggplot(aes(x = Zterm_units_ZofZ, y = term_gpa, color = TotalSleepTime)) +
+#   geom_point(alpha = 0.85) +
+#   labs(title = "Total Sleep Time vs. Midpoint of Sleep",
+#        x = "Term Units (Z-Score)",
+#        y = "Term GPA") +
+#   geom_smooth(method = "lm", se = FALSE)
+# 
+# sleep <- sleep %>%
+#   subset(daytime_sleep < 250)
+# 
+# summary(lm(cum_gpa ~ daytime_sleep, data = sleep))
 
 ```
 
 ```{r}
 
-sleep_pca <- prcomp(sleep_quant, center = TRUE, scale. = TRUE)
-summary(sleep_pca)
+# filter(sleep, cohort == "nh")$Zterm_units_ZofZ %>%
+#   is.na() %>%
+#   sum()
 
 ```
 
 ```{r}
 
-fviz_eig(sleep_pca, choice = "variance", ncp = 9, addlabels = TRUE) +
-  geom_hline(yintercept = 100 * (1 / ncol(sleep_quant)))
+# sleep_pca <- prcomp(sleep_quant, center = TRUE, scale. = TRUE)
+# summary(sleep_pca)
 
 ```
 
 ```{r}
 
-sleep_nh <- sleep_nh %>%
-  mutate(pc1 = sleep_pca$x[,1],
-         pc2 = sleep_pca$x[,2],
-         pc3 = sleep_pca$x[,3])
-
-sleep_nh %>%
-  ggplot(aes(x = pc1, y = pc2)) +
-  labs(title = "PCA Plot for Sleep",
-       x = "PC 1",
-       y = "PC 2") +
-  geom_point(aes(color = as.factor(study)), alpha = 0.75)
+# fviz_eig(sleep_pca, choice = "variance", ncp = 9, addlabels = TRUE) +
+#   geom_hline(yintercept = 100 * (1 / ncol(sleep_quant)))
 
 ```
 
 ```{r}
 
-fviz_pca_biplot(sleep_pca, label = "var",
-                alpha.ind = 0.25,
-                alpha.var = 0.75,
-                repel = TRUE,
-                # Set the color of the points to decades variable:
-                habillage = sleep_nh$cohort, pointshape = 19)
+# sleep_nh <- sleep_nh %>%
+#   mutate(pc1 = sleep_pca$x[,1],
+#          pc2 = sleep_pca$x[,2],
+#          pc3 = sleep_pca$x[,3])
+# 
+# sleep_nh %>%
+#   ggplot(aes(x = pc1, y = pc2)) +
+#   labs(title = "PCA Plot for Sleep",
+#        x = "PC 1",
+#        y = "PC 2") +
+#   geom_point(aes(color = as.factor(study)), alpha = 0.75)
 
 ```
 
 ```{r}
 
-# standardize
-
-# dist matrix
-sleep_dist <- sleep_quant %>%
-  scale(center = FALSE,
-        scale = apply(sleep_quant, 2, sd, na.rm = TRUE))
-
-sleep_dist <- sleep_dist %>%
-  dist(sleep_quant, method = "euclidean")
-
-plot(as.dendrogram(hclust(sleep_dist, method = "single")))
-plot(as.dendrogram(hclust(sleep_dist, method = "complete")))
+# fviz_pca_biplot(sleep_pca, label = "var",
+#                 alpha.ind = 0.25,
+#                 alpha.var = 0.75,
+#                 repel = TRUE,
+#                 # Set the color of the points to decades variable:
+#                 habillage = sleep_nh$cohort, pointshape = 19)
 
 ```
 
 ```{r}
 
-sleep_complete_dend <- as.dendrogram(hclust(sleep_dist, method = "complete"))
+# # standardize
+# 
+# # dist matrix
+# sleep_dist <- sleep_quant %>%
+#   scale(center = FALSE,
+#         scale = apply(sleep_quant, 2, sd, na.rm = TRUE))
+# 
+# sleep_dist <- sleep_dist %>%
+#   dist(sleep_quant, method = "euclidean")
+# 
+# plot(as.dendrogram(hclust(sleep_dist, method = "single")))
+# plot(as.dendrogram(hclust(sleep_dist, method = "complete")))
 
 ```
 
 ```{r}
 
-sleep_complete_dend <- set(sleep_complete_dend, "branches_k_color", k=5)
-
-plot(sleep_complete_dend)
+# sleep_complete_dend <- as.dendrogram(hclust(sleep_dist, method = "complete"))
 
 ```
 
 ```{r}
 
-sleep_colors <- ifelse(sleep$study == 5, "red",
-                       ifelse(sleep$study == 4, "orange",
-                              ifelse(sleep$study == 3, "gold",
-                                     ifelse(sleep$study == 2, "green", "blue"))))
+# sleep_complete_dend <- set(sleep_complete_dend, "branches_k_color", k=5)
+# 
+# plot(sleep_complete_dend)
 
-plot(set(sleep_complete_dend, "labels_colors", 
-         order_value = TRUE, sleep_colors))
+```
+
+```{r}
+
+# sleep_colors <- ifelse(sleep$study == 5, "red",
+#                        ifelse(sleep$study == 4, "orange",
+#                               ifelse(sleep$study == 3, "gold",
+#                                      ifelse(sleep$study == 2, "green", "blue"))))
+# 
+# plot(set(sleep_complete_dend, "labels_colors", 
+#          order_value = TRUE, sleep_colors))
 
 ```
