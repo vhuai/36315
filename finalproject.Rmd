@@ -118,29 +118,22 @@ We investigated the following three main research questions in our analysis.
 
 We hypothesize that students with irregular or insufficient sleep may experience fluctuations in their term GPA. 
 
-Through a series of exploratory data analyses (EDA), including scatterplots, pairs plot and histograms, we explore trends and quantify the relationship between total sleep time and GPA. Furthermore, advanced visualizations like PCA biplots and correlograms are be employed to understand the multidimensional interactions among various sleep-related metrics. 
-
-This approach will provide insight into any linear or more complex relationship influencing academic success.
 
 \vspace{10pt}
 **2. What is the impact of being a first-generation or underrepresented student on academic outcomes? Does gender play a role in academic success?**
 
-Initial observations indicate that disparities in academic outcomes may correlate with demographic variables such as race, gender, and first-generation college status. 
-
-This part of the study focuses on examining how these factors influence term GPA among students. By utilizing histograms to visualize GPA distributions and conducting one-way ANOVA tests, this research will evaluate differences across demographic groups. 
-
-This statistical approach will help determine if demographic factors serve as significant predictors of academic achievement, potentially informing targeted support strategies for underrepresented groups.
 
 \vspace{10pt}
 **3. Do students from different schools experience different levels of sleep or academic performance?**
 
-Preliminary data suggests there might be differences in student lifestyles, such as sleep habits, across various universities. 
 
-This segment aims to explore these differences and identify potential trends or anomalies in student behavior by comparing groups from different institutions (i.e. CMU with others). Techniques such as dendrograms for hierarchical clustering, violin plots for detailed distribution comparisons, and mosaic plots coupled with Chi-square tests will be applied to investigate these variances. 
-
-This analysis will not only highlight how study environments might influence lifestyle choices but also explore the broader impacts of institutional characteristics on student demographics and behaviors.
 
 # Sleep Patterns and GPA
+
+Through a series of exploratory data analyses (EDA), including scatterplots, pairs plot and histograms, we explore trends and quantify the relationship between total sleep time and GPA. Furthermore, advanced visualizations like PCA biplots and correlograms are be employed to understand the multidimensional interactions among various sleep-related metrics. 
+
+This approach will provide insight into any linear or more complex relationship influencing academic success.
+
 
 We explore the relationships between sleep and academic success with the following graphs.
 - Histograms
@@ -264,6 +257,8 @@ For students with good, very good, and excellent term grades, there appear negat
 
 ### Regression Analysis
 
+##Model1: pure sleep-related data
+
 ```{r}
 
 sleep_lm <- lm(term_gpa ~ bedtime_mssd + TotalSleepTime + midpoint_sleep
@@ -297,6 +292,34 @@ There's some deviation from the normal line, particularly in the tails, which su
 **Residuals vs Leverage:**
 This plot shows that there are a few points with higher leverage, but they do not seem to have a significant influence on the model, as indicated by the Cook's distance not exceeding the threshold.
 
+#Model2: total sleep time as the representative for regression data, control for previous term GPA,cohort, and term units 
+
+```{r}
+sleep$study <- as.factor(sleep$study)
+
+# Now rename the levels
+levels(sleep$study) <- c( "1", "2", "3", "5")
+
+# Now we can fit the model with the renamed factor levels
+model2 <- lm(term_gpa ~ TotalSleepTime + cum_gpa + study + term_units, data = sleep)
+
+# Summary of the model
+summary(model2)
+
+# Diagnostic plots
+par(mfrow=c(2,2))
+plot(model2)
+```
+**TotalSleepTime:** The coefficient $0.0018722$ is positive and statistically significant, which suggests that an increase in Total Sleep Time is associated with an increase in GPA, controlling for other factors.
+**cum_gpa:** we control for cum_gpa because previous semesters’ cumulative gpa is highly correlated with the new semester’s GPA, which reflects the underlying studying ability of the students. It can be clearly seen from the model that they are highly positively correlated. 
+
+**study**: the cohort effect is not statistically significant, indicating that there is no difference in sleep patterns vs GPA for different studies.(We can make generalization ) 
+
+**term_units:** The coefficient is $0.0018998$ and is not statistically significant (p-value = $0.711$), suggesting that the number of term units is not a significant predictor of term GPA in this model.
+
+**Adjusted R-Squared:** The value of $0.4106$ indicates that the model explains about 41.6%of the variability in the dependent variable, and the contribution can be largely attributed to previous terms’ cumulative GPA
+**F-Statistic:** The F-statistic is significant, indicating that the model is jointly significant. 
+
 
 ## Pairs Plot
 
@@ -315,6 +338,14 @@ Intuition: By stratifying the data with colors and shapes based on demographic f
 Inconsistent relationship when only look at quantitative variable vs looking at categorical and quantitative together→ The relationship between sleep time and GPA could be non-linear. Perhaps both too little and too much sleep could be detrimental to GPA, which might result in a U-shaped relationship that would not be well-captured by a simple linear correlation.
 
 # Demographics and GPA
+
+
+Initial observations indicate that disparities in academic outcomes may correlate with demographic variables such as race, gender, and first-generation college status. 
+
+This part of the study focuses on examining how these factors influence term GPA among students. By utilizing histograms to visualize GPA distributions and conducting one-way ANOVA tests, this research will evaluate differences across demographic groups. 
+
+This statistical approach will help determine if demographic factors serve as significant predictors of academic achievement, potentially informing targeted support strategies for underrepresented groups.
+
 
 -Histogram on the distribution of term_gpa (EDA)
 -one-way ANOVA analysis to see whether term_gpa differs across different demographic groups (gender, race, and first-generation status).
@@ -379,6 +410,12 @@ The density plot illustrates the distribution of term GPA scores for underrepres
 
 
 # Cohort and Performance
+
+Preliminary data suggests there might be differences in student lifestyles, such as sleep habits, across various universities. 
+
+This segment aims to explore these differences and identify potential trends or anomalies in student behavior by comparing groups from different institutions (i.e. CMU with others). Techniques such as dendrograms for hierarchical clustering, violin plots for detailed distribution comparisons, and mosaic plots coupled with Chi-square tests will be applied to investigate these variances. 
+
+This analysis will not only highlight how study environments might influence lifestyle choices but also explore the broader impacts of institutional characteristics on student demographics and behaviors.
 
 -Dendrogram by study groups
 -Violin plot on TotalSleepTime by study groups
@@ -485,6 +522,13 @@ plot(set(sleep_complete_dend, "labels_colors",
 ```
 
 dendrogram (five branches colored, with which study they came from as the label colors)
+
+
+##Conclusion 
+
+**First-year college students are getting insufficient sleep, and the present work indicates that it may carry significant costs for their academic achievement. Over 600 students in five studies drawn across three different American universities slept on average 6 h and 37 min per night early in their academic terms, a rate highlighting significant accumulating sleep debt. Moreover, every hour of nightly sleep lost was associated with a 0.18% decrease in end-of-term GPA. The present findings call for more research on sleep–achievement outcomes in young adults, and encourage new public health efforts to help young adults get more sleep.**
+
+
 
 ## Unfinished Work
 
