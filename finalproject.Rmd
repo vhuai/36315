@@ -289,6 +289,15 @@ qqline(resid(sleep_lm))
 
 ```
 
+**Residuals vs Fitted:**
+The plot shows a random pattern of residuals, which is good for the assumption of homoscedasticity. However, there may be a slight curve, indicating potential non-linearity.
+Normal Q-Q Plot:
+There's some deviation from the normal line, particularly in the tails, which suggests that the residuals may not be normally distributed and there might be outliers or influential points affecting the model.
+
+**Residuals vs Leverage:**
+This plot shows that there are a few points with higher leverage, but they do not seem to have a significant influence on the model, as indicated by the Cook's distance not exceeding the threshold.
+
+
 ## Pairs Plot
 
 ```{r, warning = FALSE}
@@ -309,6 +318,65 @@ Inconsistent relationship when only look at quantitative variable vs looking at 
 
 -Histogram on the distribution of term_gpa (EDA)
 -one-way ANOVA analysis to see whether term_gpa differs across different demographic groups (gender, race, and first-generation status).
+
+```{r}
+library(tidyverse)
+sleep<-read.csv("cmu-sleep.csv")
+library(ggplot2)
+
+sleep$demo_firstgen = as.factor(sleep$demo_firstgen)
+sleep$demo_race = as.factor(sleep$demo_race)
+sleep$demo_gender = as.factor(sleep$demo_gender)
+
+sleep_clean <- sleep |>
+  filter(demo_firstgen != "2") |>
+  drop_na(term_gpa, demo_gender, demo_firstgen, demo_race) |>
+  mutate(
+    demo_firstgen = as.factor(demo_firstgen),
+    demo_race = as.factor(demo_race),
+    demo_gender = as.factor(demo_gender)
+  )
+
+#term gpa vs. first-gen status
+sleep_clean |>
+  ggplot(aes(x = term_gpa, color =demo_firstgen)) +
+  geom_density() +
+  scale_color_discrete(labels = c("non-first gen", "first-gen")) +
+  labs(x = "Term GPA", y = "Density", color = "First-generation status",
+       title = "Term GPA with first-generation status") 
+
+t.test(term_gpa ~ demo_firstgen, data = sleep_clean)
+
+#term gpa vs. gender status
+sleep_clean |>
+  ggplot(aes(x = term_gpa, color =demo_gender)) +
+  geom_density() +
+  scale_color_discrete(labels = c("male", "female")) +
+  labs(x = "Term GPA", y = "Density", color = "Gender",
+       title = "Term GPA with gender status")  
+
+t.test(term_gpa ~ demo_gender, data = sleep_clean)
+
+#term gpa vs. race status
+sleep_clean |>
+  ggplot(aes(x = term_gpa, color =demo_race)) +
+  geom_density() +
+  scale_color_discrete(labels = c("underrepresented", "non-underrepresented")) +
+  labs(x = "Term GPA", y = "Density", color = "Race",
+       title = "Term GPA with race status") 
+
+t.test(term_gpa ~ demo_race, data = sleep_clean)
+```
+
+Interpretation for first-generation status vs. term gpa:
+The density plot illustrates the distribution of term GPA scores for two distinct groups: first-generation college students ("first-gen") and non-first-generation students ("non-first gen"). In general trend, the first-gen student distribution has its peak slightly to the left of the non-first-gen distribution. This suggests a higher concentration of first-gen students within the lower GPA range. Conversely, the non-first-gen students display a somewhat higher density towards the upper end of the GPA scale, indicating a tendency for these students to achieve higher GPAs. Despite these differences, the overall shapes of both distributions are similar, peaking around a GPA of 3, indicating that the most common GPA scores for both first-gen and non-first-gen students. From the t-test, we observed that the mean GPA for non-first-gen students is approximately 3.4803, and the mean for first-gen students is approximately 3.2966. Since the p-value is smaller than 0.05,  we conclude that non-first-gen students have a higher average GPA.
+
+Interpretation for gender status vs. term gpa:
+The density plot illustrates the distribution of term GPA scores for male and female students, with both distributions peaking around a GPA of 3.The corresponding t-test shows that the mean GPA for male students is about 3.45219 and female students about 3.448530. Since the p-value for the t-test is greater than 0.05, there's no statistically significant difference in mean GPA between male and female students. 
+
+Interpretation for race status vs. term gpa:
+The density plot illustrates the distribution of term GPA scores for underrepresented and non-underrepresented race groups. The distribution of GPAs for the underrepresented group might be slightly shifted towards the lower end of the GPA range compared to the non-underrepresented group, which indicates students with non-underrepresented race tends to perform better for top term GPAs (above 3.5). The t-test results show a t-value of approximately -3.8419 with a p-value of roughly 0.000178, which is well below the typical significance level of 0.05. This indicates a statistically significant difference in the mean GPAs between the two groups, with the non-underrepresented group having a higher average term GPA.
+
 
 # Cohort and Performance
 
