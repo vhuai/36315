@@ -28,6 +28,7 @@ suppressPackageStartupMessages(library(dendextend))
 suppressPackageStartupMessages(library(factoextra))
 suppressPackageStartupMessages(library(ggcorrplot))
 suppressPackageStartupMessages(library(GGally))
+suppressPackageStartupMessages(library(gridExtra))
 
 # Data
 sleep <- read.csv("cmu-sleep.csv")
@@ -45,17 +46,10 @@ sleep_quantextra <- sleep %>%
   dplyr::select(bedtime_mssd:Zterm_units_ZofZ) %>%
   na.omit()
 
-# sleep$demo_firstgen = as.factor(sleep$demo_firstgen)
-# sleep$demo_race = as.factor(sleep$demo_race)
-# sleep$demo_gender = as.factor(sleep$demo_gender)
-
 # Cleaned Data
-sleep_clean <- sleep |>
-  filter(cat_firstgen != "2") |>
-  drop_na(term_gpa, cat_gender, cat_firstgen, cat_race) |>
-  mutate(cat_firstgen = as.factor(cat_firstgen),
-         cat_race = as.factor(cat_race),
-         cat_gender = as.factor(cat_gender))
+sleep_clean <- sleep %>%
+  filter(cat_firstgen != "2") %>%
+  drop_na(term_gpa, cat_gender, cat_firstgen, cat_race)
 
 ```
 
@@ -66,16 +60,6 @@ sleep_clean <- sleep |>
 It is important for students to succeed during their first year of college for numerous reasons. However, the transition to college life presents many challenges, which can result in the comprising of a student's sleep. Sleep is crucial to cognitive function, so this reduction in sleep could threaten a student's ability to succeed in their first year of college. 
 
 We hypothesize that better sleep could lead to a higher GPA, and suggest that university policy and student behavior can be adjusted accordingly to enhance academic outcomes.
-
-## Overall Theme
-
-Our aim is to discern the relationship between sleep habits and academic success during the first year of college. This exploration is structured into three distinct sections: 
-
-1. We examine the connection between sleep duration and academic achievement.
-
-2. We consider whether sleep variability, as an indicator of sleep quality, might also correlate with GPA.
-
-3. We identify if these relationships hold true when accounting for demographic factors like race, gender, and first-generation college status.
 
 # Overview
 
@@ -153,7 +137,7 @@ In the following graphs, we plot histograms and density plots to explore the dis
 
 ```{r}
 
-sleep %>%
+sleep.distribution <- sleep %>%
   ggplot2::ggplot(aes(x = TotalSleepTime)) +
   ggplot2::labs(title = "Total Sleep Time Distribution",
                 y = "Density",
@@ -165,13 +149,7 @@ sleep %>%
   ggplot2::geom_density(fill = "deeppink",
                         alpha = 0.2)
 
-```
-
-`Total Sleep Time` appears to be approximately normally distributed, with a mean of about 397 minutes (or 6.6 hours). `Total Sleep Time` also has a standard deviation of 50.8 minutes. There are a few outliers on both ends of the graph. The corresponding density plot confirms the bell-shaped curve. 
-
-```{r}
-
-sleep %>%
+term.distribution <- sleep %>%
   ggplot2::ggplot(aes(x = term_gpa)) +
   ggplot2::labs(title = "Term GPA Distribution",
                 y = "Density",
@@ -183,7 +161,11 @@ sleep %>%
   ggplot2::geom_density(fill = "green",
                         alpha = 0.2)
 
+grid.arrange(sleep.distribution, term.distribution)
+
 ```
+
+`Total Sleep Time` appears to be approximately normally distributed, with a mean of about 397 minutes (or 6.6 hours). `Total Sleep Time` also has a standard deviation of 50.8 minutes. There are a few outliers on both ends of the graph. The corresponding density plot confirms the bell-shaped curve. 
 
 `Term GPA` appears to be left skewed, indicating that more students have a GPA closer to 4.0 than to the lower end of the scale. There is a clear peak around the GPA of 3.5. The density plot overlays the histogram to provide a smoothed curve representation of the distribution. The density plot emphasizes the skew towards higher GPA.
 
@@ -211,7 +193,7 @@ We find several interesting, although not very strong, correlations. Notably, we
 
 ## PCA Biplot
 
-We also make a PCA biplot to identify any linear relationships between sleeping time and cumulative GPA. We aim to investigate how different aspects of sleep relate to academic performance.
+We also made a PCA biplot to identify any linear relationships between sleeping time and cumulative GPA. We aim to investigate how different aspects of sleep relate to academic performance.
 
 ```{r}
 
@@ -273,6 +255,8 @@ We also employ formal statistical tests to investigate the relationship between 
 
 ### Model 1: Term GPA vs. Sleep-Related Metrics
 
+Our first test investigates how `bedtime_mssd`, `TotalSleepTime`, `midpoint_sleep`, `frac_nights_with_data` and `daytime_sleep` correlates with `term_gpa`.
+
 ```{r}
 
 # Fitted Model
@@ -309,6 +293,8 @@ plot(sleep_lm)
 **Residuals vs Leverage:** This plot shows that there are a few points with higher leverage, but they do not seem to have a significant influence on the model, as indicated by the Cook's distance not exceeding the threshold.
 
 ### Model 2: Term GPA vs. Total Sleep Time (controlled for Cumulative GPA, Cohort, and Term Units)
+
+We further investigated the correlation between `term_gpa` and `TotalSleepTime`. We also controlled for `cum_gpa`, `study` and `term_units`, which we hypothesized to influence the relationship.
 
 ```{r}
 
@@ -363,13 +349,30 @@ We investigate the distribution of term_gpa across different demographic groups 
 ```{r}
 
 # Term GPA vs. First-Gen Status
-
-sleep_clean |>
+gpa_firstgen <- sleep_clean |>
   ggplot(aes(x = term_gpa, color = cat_firstgen)) +
   geom_density() +
   scale_color_discrete(labels = c("Non-First Gen", "First-Gen")) +
   labs(x = "Term GPA", y = "Density", color = "First-Generation Status",
        title = "Term GPA with First-Generation Status") 
+
+# Term GPA vs. Gender Status
+gpa_gender <- sleep_clean |>
+  ggplot(aes(x = term_gpa, color = cat_gender)) +
+  geom_density() +
+  scale_color_discrete(labels = c("Male", "Female")) +
+  labs(x = "Term GPA", y = "Density", color = "Gender",
+       title = "Term GPA with Gender Status") 
+
+# Term GPA vs. Race Status
+gpa_clean <- sleep_clean |>
+  ggplot(aes(x = term_gpa, color = cat_race)) +
+  geom_density() +
+  scale_color_discrete(labels = c("Underrepresented", "Non-Underrepresented")) +
+  labs(x = "Term GPA", y = "Density", color = "Race",
+       title = "Term GPA with Race Status") 
+
+grid.arrange(gpa_firstgen, gpa_gender, gpa_clean)
 
 ```
 
@@ -385,19 +388,6 @@ t.test(term_gpa ~ cat_firstgen, data = sleep_clean)
 
 From the t-test, we observed that the mean GPA for non-first-generation students is approximately $3.4803$, and the mean for first-gen students is approximately $3.2966$. Since the p-value is smaller than 0.05,  we conclude that non-first-gen students have a higher average GPA.
 
-
-```{r}
-
-# Term GPA vs. Gender Status
-sleep_clean |>
-  ggplot(aes(x = term_gpa, color = cat_gender)) +
-  geom_density() +
-  scale_color_discrete(labels = c("Male", "Female")) +
-  labs(x = "Term GPA", y = "Density", color = "Gender",
-       title = "Term GPA with Gender Status")  
-
-```
-
 The density plot illustrates the distribution of term GPA scores for male and female students, with both distributions peaking around a GPA of 3.The corresponding t-test shows that the mean GPA for male students is about 3.45219 and female students about 3.448530.
 
 ```{r}
@@ -407,18 +397,6 @@ t.test(term_gpa ~ cat_gender, data = sleep_clean)
 ```
 
 Since the p-value for the t-test is greater than 0.05, there is no statistically significant difference in mean GPA between male and female students.
-
-```{r}
-
-# Term GPA vs. Race Status
-sleep_clean |>
-  ggplot(aes(x = term_gpa, color = cat_race)) +
-  geom_density() +
-  scale_color_discrete(labels = c("Underrepresented", "Non-Underrepresented")) +
-  labs(x = "Term GPA", y = "Density", color = "Race",
-       title = "Term GPA with Race Status") 
-
-```
 
 The density plot illustrates the distribution of term GPA scores for underrepresented and non-underrepresented race groups. The distribution of GPAs for the underrepresented group might be slightly shifted towards the lower end of the GPA range compared to the non-underrepresented group, which indicates students with non-underrepresented race tends to perform better for top term GPAs (above 3.5). 
 
